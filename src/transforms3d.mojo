@@ -1,8 +1,6 @@
 """Rotation conversion kernels and their C ABI."""
 
 from std.math import acos, atan2, cos, exp, log, sin, sqrt
-from std.sys import simd_width_of as simdwidthof
-
 comptime Ptr = UnsafePointer[Float64, AnyOrigin[mut=True]]
 
 
@@ -20,15 +18,16 @@ def next_axis(index: Int) -> Int:
     return 1
 
 
-def euler2mat_value(
+def euler2mat_one(
     ai_in: Float64,
     aj_in: Float64,
     ak_in: Float64,
+    dst: Ptr,
     firstaxis: Int,
     parity: Int,
     repetition: Int,
     frame: Int,
-) -> SIMD[DType.float64, 9]:
+):
     var ai = ai_in
     var aj = aj_in
     var ak = ak_in
@@ -53,7 +52,6 @@ def euler2mat_value(
     var cs = ci * sk
     var sc = si * ck
     var ss = si * sk
-    var dst = SIMD[DType.float64, 9]()
     if repetition != 0:
         dst[i * 3 + i] = cj
         dst[i * 3 + j] = sj * si
@@ -74,33 +72,6 @@ def euler2mat_value(
         dst[k * 3 + i] = -sj
         dst[k * 3 + j] = cj * si
         dst[k * 3 + k] = cj * ci
-    return dst
-
-
-def euler2mat_one(
-    ai: Float64,
-    aj: Float64,
-    ak: Float64,
-    dst: Ptr,
-    firstaxis: Int,
-    parity: Int,
-    repetition: Int,
-    frame: Int,
-):
-    var matrix = euler2mat_value(
-        ai, aj, ak, firstaxis, parity, repetition, frame
-    )
-    comptime W = simdwidthof[DType.float64]()
-    var offset = 0
-    while offset + W <= 9:
-        var chunk = SIMD[DType.float64, W]()
-        for lane in range(W):
-            chunk[lane] = matrix[offset + lane]
-        dst.store(offset, chunk)
-        offset += W
-    while offset < 9:
-        dst[offset] = matrix[offset]
-        offset += 1
 
 
 def mat2euler_one(
