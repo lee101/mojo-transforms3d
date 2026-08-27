@@ -21,6 +21,7 @@ F = ctypes.c_double
 _SIGNATURES = {
     "mt3_euler2mat": ([I, I, I, I, I, I, I, I, I], None),
     "mt3_euler2mat_scalar": ([F, F, F, I, I], None),
+    "mt3_euler2mat_sxyz_scalar": ([F, F, F, I], None),
     "mt3_mat2euler": ([I, I, I, I, I, I, I], None),
     "mt3_euler2quat": ([I, I, I, I, I, I, I, I, I], None),
     "mt3_quat2mat": ([I, I, I], None),

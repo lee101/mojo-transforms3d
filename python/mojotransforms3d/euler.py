@@ -45,6 +45,7 @@ _TUPLE2CODE = {
 _AXES2CODE = {name: _TUPLE2CODE[spec] for name, spec in _AXES2TUPLE.items()}
 _SCALAR_STATE = threading.local()
 _EULER2MAT_SCALAR = None
+_EULER2MAT_SXYZ_SCALAR = None
 
 
 def _axes_tuple(axes) -> tuple[int, int, int, int]:
@@ -106,14 +107,21 @@ def euler2mat_batch(ai, aj, ak, axes="sxyz"):
 
 
 def euler2mat(ai, aj, ak, axes="sxyz"):
-    global _EULER2MAT_SCALAR
-    function = _EULER2MAT_SCALAR
-    if function is None:
-        function = lib().mt3_euler2mat_scalar
-        _EULER2MAT_SCALAR = function
+    global _EULER2MAT_SCALAR, _EULER2MAT_SXYZ_SCALAR
     result, pointer = _scalar_matrix()
-    function(float(ai), float(aj), float(ak), pointer, _axes_code(axes))
-    return result.copy()
+    if axes == "sxyz":
+        function = _EULER2MAT_SXYZ_SCALAR
+        if function is None:
+            function = lib().mt3_euler2mat_sxyz_scalar
+            _EULER2MAT_SXYZ_SCALAR = function
+        function(ai, aj, ak, pointer)
+    else:
+        function = _EULER2MAT_SCALAR
+        if function is None:
+            function = lib().mt3_euler2mat_scalar
+            _EULER2MAT_SCALAR = function
+        function(ai, aj, ak, pointer, _axes_code(axes))
+    return np.array(result)
 
 
 def _matrix_rows(mat):

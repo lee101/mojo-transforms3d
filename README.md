@@ -68,22 +68,26 @@ assert matrices.shape == (2, 3, 3)
 ## Performance
 
 Measured with `pixi run bench` on an Intel Xeon E5-2697 v4 at 2.30 GHz,
-Linux x86-64, using Mojo `1.0.0b3.dev2026072406`, transforms3d 0.4.2, and
+Linux x86-64, using Mojo `1.1.0.dev2026081105`, transforms3d 0.4.2, and
 NumPy 2.5.1:
 
 | case | Mojo | transforms3d | speedup |
 | --- | ---: | ---: | ---: |
-| `euler2mat` scalar (20k calls) | 50.52 ms | 76.85 ms | 1.52x |
-| `euler2mat_batch` (100k) | 13.77 ms | 646.07 ms | 46.93x |
-| `quat2mat_batch` (100k) | 1.30 ms | 632.01 ms | 486.60x |
-| `qmult_batch` (100k) | 0.63 ms | 580.52 ms | 926.57x |
-| `rotate_vector_batch` (100k) | 2.81 ms | 1772.61 ms | 631.25x |
+| `euler2mat` scalar (20k calls) | 48.46 ms | 76.82 ms | 1.59x |
+| `euler2mat_batch` (100k) | 10.34 ms | 598.13 ms | 57.87x |
+| `quat2mat_batch` (100k) | 1.10 ms | 598.98 ms | 546.46x |
+| `qmult_batch` (100k) | 0.45 ms | 549.39 ms | 1216.74x |
+| `rotate_vector_batch` (100k) | 1.53 ms | 1669.72 ms | 1089.27x |
 
 The batch rows compare one Mojo call with repeated calls to the real upstream
 API on the same inputs. transforms3d has no batch API, so the large speedups
 include eliminating its Python loop and should not be read as per-operation
 arithmetic speedups. Timings fluctuate on this shared machine; the table is
-the output of the final run, without extrapolation. There is no GPU path.
+the output of the final run, without extrapolation. Profiling found that all
+batch cases were already more than 5x ahead, so they were not parallelized.
+The fixed-size kernels remain below roughly two arithmetic operations per byte
+moved and cannot amortize device transfer and launch overhead, so there is no
+GPU path.
 
 ## How it works
 
@@ -93,8 +97,9 @@ with `ctypes`. NumPy owns every allocation. Before a call, wrappers broadcast
 inputs and make contiguous `float64` buffers, then keep those arrays and their
 output alive until the synchronous native call returns. Mojo receives their
 addresses and row counts, so it never owns or frees Python memory. Scalar
-`euler2mat` assembles its results in a SIMD value and uses a thread-local
-scratch matrix; callers receive an independently owned copy.
+`euler2mat` evaluates the default convention's three sine/cosine pairs in one
+float64 SIMD value and uses a thread-local scratch matrix; callers receive an
+independently owned copy.
 
 Operations whose upstream definitions rely on NumPy linear algebra remain in
 Python. In particular, `mat2quat` uses upstream's robust symmetric-eigensystem

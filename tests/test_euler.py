@@ -102,6 +102,14 @@ def test_euler2mat_scalar_fast_path_and_simd_tail_match_batch(axes):
     )
 
 
+def test_euler2mat_default_simd_path_owns_each_result():
+    first = euler.euler2mat(0.2, -0.4, 0.7)
+    second = euler.euler2mat(0.2, -0.4, 0.7)
+    np.testing.assert_array_equal(first, second)
+    first[0, 0] = 123.0
+    assert second[0, 0] != 123.0
+
+
 def test_euler2mat_scalar_buffers_are_owned_and_thread_local():
     expected = euler.euler2mat(0.2, -0.4, 0.7, "rzyz")
 

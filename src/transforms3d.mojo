@@ -1,6 +1,7 @@
 """Rotation conversion kernels and their C ABI."""
 
 from std.math import acos, atan2, cos, exp, log, sin, sqrt
+from std.sys.info import simd_width_of as simdwidthof
 comptime Ptr = UnsafePointer[Float64, AnyOrigin[mut=True]]
 
 
@@ -72,6 +73,35 @@ def euler2mat_one(
         dst[k * 3 + i] = -sj
         dst[k * 3 + j] = cj * si
         dst[k * 3 + k] = cj * ci
+
+
+def euler2mat_sxyz_one(ai: Float64, aj: Float64, ak: Float64, dst: Ptr):
+    comptime W = simdwidthof[DType.float64]()
+    var angles = SIMD[DType.float64, W](0.0)
+    angles[0] = ai
+    angles[1] = aj
+    angles[2] = ak
+    var sine = sin(angles)
+    var cosine = cos(angles)
+    var si = sine[0]
+    var sj = sine[1]
+    var sk = sine[2]
+    var ci = cosine[0]
+    var cj = cosine[1]
+    var ck = cosine[2]
+    var cc = ci * ck
+    var cs = ci * sk
+    var sc = si * ck
+    var ss = si * sk
+    dst[0] = cj * ck
+    dst[1] = sj * sc - cs
+    dst[2] = sj * cc + ss
+    dst[3] = cj * sk
+    dst[4] = sj * ss + cc
+    dst[5] = sj * cs - sc
+    dst[6] = -sj
+    dst[7] = cj * si
+    dst[8] = cj * ci
 
 
 def mat2euler_one(
@@ -325,6 +355,16 @@ def mt3_euler2mat_scalar(
     euler2mat_one(
         ai, aj, ak, p(dst), firstaxis, parity, repetition, frame
     )
+
+
+@export("mt3_euler2mat_sxyz_scalar")
+def mt3_euler2mat_sxyz_scalar(
+    ai: Float64,
+    aj: Float64,
+    ak: Float64,
+    dst: Int,
+) abi("C"):
+    euler2mat_sxyz_one(ai, aj, ak, p(dst))
 
 
 @export("mt3_mat2euler")
